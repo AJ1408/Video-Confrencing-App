@@ -371,14 +371,14 @@ export default function VideoRoom() {
           </button>
 
           {/* Screen Share */}
-          <button className="p-4 rounded-full hover:bg-[#5f6368] bg-[#3c4043] transition-colors">
+          {/* <button className="p-4 rounded-full hover:bg-[#5f6368] bg-[#3c4043] transition-colors">
             <Monitor className="w-6 h-6 text-white" />
-          </button>
+          </button> */}
 
           {/* Settings */}
-          <button className="p-4 rounded-full hover:bg-[#5f6368] bg-[#3c4043] transition-colors">
+          {/* <button className="p-4 rounded-full hover:bg-[#5f6368] bg-[#3c4043] transition-colors">
             <Settings className="w-6 h-6 text-white" />
-          </button>
+          </button> */}
         </div>
       </div>
     </div>
