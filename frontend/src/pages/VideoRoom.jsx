@@ -382,7 +382,7 @@ console.error("Signal error:", err);
               <VideoOff className="w-6 h-6 text-white" />
             ) : (
               <Video className="w-6 h-6 text-white" />
-            )}
+            )}e
           </button>
 
           {/* End Call */}
