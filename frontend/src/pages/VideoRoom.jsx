@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import SockJS from "sockjs-client";
-import { Stomp } from "@stomp/stompjs";
+import { Stomp ,Client } from "@stomp/stompjs";
 import {
   Mic,
   MicOff,
@@ -104,82 +104,105 @@ export default function VideoRoom() {
       sendSignal("JOIN");
     });
   };
+ 
 
-  const sendSignal = (type, data = null) => {
-    if (stompClientRef.current && stompClientRef.current.connected) {
-      const message = {
-        type,
-        sender: userId.current,
-        ...(data && { data }),
-      };
+const generateCorrelationId = () => {
+if (typeof crypto !== "undefined" && crypto.randomUUID) {
+return crypto.randomUUID();
+}
+return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
 
-      stompClientRef.current.send(
-        `/app/room/${roomId}`,
-        {},
-        JSON.stringify(message)
-      );
+const getSignalEvent = (signal) => (signal?.eventType || signal?.type || "").toLowerCase();
+const getSignalSender = (signal) => signal?.fromUserId || signal?.sender;
 
-      console.log("Sent signal:", message);
-    }
-  };
+ const sendSignal = (type, data = null, toUserId = null) => {
+if (stompClientRef.current && stompClientRef.current.connected) {
+const message = {
+roomId,
+fromUserId: userId.current,
+toUserId,
+eventType: type,
+timestamp: Date.now().toString(),
+correlationId: generateCorrelationId(),
 
+// legacy keys (keep for backward compatibility)
+type,
+sender: userId.current,
+
+...(data && { data }),
+};
+
+stompClientRef.current.send(
+  "/app/room/" + roomId,
+  {},
+  JSON.stringify(message)
+);
+
+console.log("Sent signal:", message);
+}
+};
   const handleSignal = async (signal) => {
-    console.log("Signal received:", signal);
+console.log("Signal received:", signal);
 
-    if (signal.sender === userId.current) return;
+const senderId = getSignalSender(signal);
+const event = getSignalEvent(signal);
 
-    try {
-      if (signal.type.toLowerCase() === "join") {
-        console.log("User joined -> creating offer");
+if (senderId === userId.current) return;
 
-        if (peerConnectionRef.current) return;
+try {
+if (event === "join" || event === "user_join") {
+console.log("User joined -> creating offer");
 
-        peerConnectionRef.current = createPeerConnection();
+if (peerConnectionRef.current) return;
 
-        const offer = await peerConnectionRef.current.createOffer();
-        await peerConnectionRef.current.setLocalDescription(offer);
+peerConnectionRef.current = createPeerConnection();
 
-        sendSignal("offer", offer);
-      } else if (signal.type.toLowerCase() === "offer") {
-        console.log("Offer received");
+const offer = await peerConnectionRef.current.createOffer();
+await peerConnectionRef.current.setLocalDescription(offer);
 
-        if (!peerConnectionRef.current) {
-          peerConnectionRef.current = createPeerConnection();
-        }
+sendSignal("offer", offer);
+} else if (event === "offer" || event === "sdp_offer") {
+console.log("Offer received");
 
-        await peerConnectionRef.current.setRemoteDescription(
-          new RTCSessionDescription(signal.data)
-        );
+if (!peerConnectionRef.current) {
+peerConnectionRef.current = createPeerConnection();
+}
 
-        const answer = await peerConnectionRef.current.createAnswer();
-        await peerConnectionRef.current.setLocalDescription(answer);
+await peerConnectionRef.current.setRemoteDescription(
+new RTCSessionDescription(signal.data)
+);
 
-        sendSignal("answer", answer);
-      } else if (signal.type.toLowerCase() === "answer") {
-        if (!peerConnectionRef.current) return;
+const answer = await peerConnectionRef.current.createAnswer();
+await peerConnectionRef.current.setLocalDescription(answer);
 
-        const state = peerConnectionRef.current.signalingState;
+sendSignal("answer", answer);
+} else if (event === "answer" || event === "sdp_answer") {
+if (!peerConnectionRef.current) return;
 
-        if (state === "have-local-offer") {
-          await peerConnectionRef.current.setRemoteDescription(
-            new RTCSessionDescription(signal.data)
-          );
-          console.log("Answer applied");
-        }
-      } else if (
-        signal.type.toLowerCase() === "ice-candidate" ||
-        signal.type.toLowerCase() === "candidate"
-      ) {
-        if (peerConnectionRef.current && signal.data) {
-          await peerConnectionRef.current.addIceCandidate(
-            new RTCIceCandidate(signal.data)
-          );
-        }
-      }
-    } catch (err) {
-      console.error("Signal error:", err);
-    }
-  };
+const state = peerConnectionRef.current.signalingState;
+
+if (state === "have-local-offer") {
+await peerConnectionRef.current.setRemoteDescription(
+new RTCSessionDescription(signal.data)
+);
+console.log("Answer applied");
+}
+} else if (
+event === "ice-candidate" ||
+event === "candidate" ||
+event === "ice_candidate"
+) {
+if (peerConnectionRef.current && signal.data) {
+await peerConnectionRef.current.addIceCandidate(
+new RTCIceCandidate(signal.data)
+);
+}
+}
+} catch (err) {
+console.error("Signal error:", err);
+}
+};
 
   const createPeerConnection = () => {
     console.log("Creating PeerConnection");

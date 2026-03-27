@@ -1,0 +1,18 @@
+# Maven build output
+meetapp/target/
+
+# Maven wrapper JAR (keep scripts and properties)
+meetapp/.mvn/wrapper/maven-wrapper.jar
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/
+*.iml
